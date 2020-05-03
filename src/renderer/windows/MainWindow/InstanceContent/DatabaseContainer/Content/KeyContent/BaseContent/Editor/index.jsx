@@ -83,7 +83,7 @@ class Editor extends React.PureComponent {
     modes.raw = content
     modes.json = tryFormatJSON(content, true)
     modes.messagepack = modes.json ? false : tryFormatMessagepack(buffer, true)
-    modes.base64 = tryFormatBase64(content, true)
+    modes.base64 = tryFormatFromBase64(content, true)
     let currentMode = 'raw'
     if (modes.messagepack) {
       currentMode = 'messagepack'
@@ -112,6 +112,12 @@ class Editor extends React.PureComponent {
         return
       }
       content = msgpack.encode(JSON.parse(content))
+    } else if (this.state.currentMode === 'base64') {
+      content = tryFormatToBase64(this.state.modes.base64)
+      if (!content) {
+        alert('The json is invalid. Please check again.')
+        return
+      }
     }
     this.props.onSave(content, err => {
       if (err) {
@@ -168,11 +174,11 @@ class Editor extends React.PureComponent {
           lineNumbers: true
         }}
         />)
-    } else if (this.state.currentMode === 'json' || this.state.currentMode === 'base64') {
+    } else if (this.state.currentMode === 'json') {
       viewer = (<Codemirror
         ref="codemirror"
         key="json"
-        value={this.state.modes.json || this.state.modes.base64}
+        value={this.state.modes.json}
         onChange={this.updateContent.bind(this, 'json')}
         options={{
           mode: {
@@ -196,6 +202,28 @@ class Editor extends React.PureComponent {
         key="messagepack"
         value={this.state.modes.messagepack}
         onChange={this.updateContent.bind(this, 'messagepack')}
+        options={{
+          mode: {
+            name: 'javascript',
+            json: true
+          },
+          tabSize: 2,
+          indentWithTabs: true,
+          styleActiveLine: true,
+          lineNumbers: true,
+          lineWrapping: this.state.wrapping,
+          gutters: ['CodeMirror-lint-markers'],
+          autoCloseBrackets: true,
+          matchTags: true,
+          lint: Boolean(this.state.modes.raw)
+        }}
+        />)
+    } else if (this.state.currentMode === 'base64') {
+      viewer = (<Codemirror
+        ref="codemirror"
+        key="base64"
+        value={this.state.modes.base64}
+        onChange={this.updateContent.bind(this, 'base64')}
         options={{
           mode: {
             name: 'javascript',
@@ -287,9 +315,9 @@ function tryFormatMessagepack(buffer, beautify) {
   return false
 }
 
-function tryFormatBase64(str, beautify) {
+function tryFormatFromBase64(json, beautify) {
   try {
-    const jsonString = pako.inflate(Buffer.from(str, 'base64'), { to: 'string' })
+    const jsonString = pako.inflate(Buffer.from(json, 'base64'), { to: 'string' })
     try {
       const o = JSON.parse(jsonString)
       if (o && typeof o === 'object' && o !== null) {
@@ -299,5 +327,12 @@ function tryFormatBase64(str, beautify) {
         return JSON.stringify(o)
       }
     } catch (e) { /**/ }
+  } catch (e) { /**/ }
+}
+
+function tryFormatToBase64(str) {
+  try {
+    const compact = str.replace(/\s/g, '');
+    return btoa(pako.deflate(compact, { to: 'string' }));
   } catch (e) { /**/ }
 }
