@@ -19,6 +19,7 @@ window.jsonlint = jsonlint.parser
 require('codemirror/lib/codemirror.css')
 require('codemirror/addon/lint/lint.css')
 const msgpack = require('msgpack5')()
+import pako from 'pako';
 
 require('./index.scss')
 
@@ -37,7 +38,8 @@ class Editor extends React.PureComponent {
       modes: {
         raw: false,
         json: false,
-        messagepack: false
+        messagepack: false,
+        base64: false,
       }
     }
   }
@@ -81,11 +83,14 @@ class Editor extends React.PureComponent {
     modes.raw = content
     modes.json = tryFormatJSON(content, true)
     modes.messagepack = modes.json ? false : tryFormatMessagepack(buffer, true)
+    modes.base64 = tryFormatBase64(content, true)
     let currentMode = 'raw'
     if (modes.messagepack) {
       currentMode = 'messagepack'
     } else if (modes.json) {
       currentMode = 'json'
+    } else if (modes.base64) {
+      currentMode = 'base64'
     }
     this.setState({modes, currentMode, changed: false}, () => {
       this.updateLayout()
@@ -163,11 +168,11 @@ class Editor extends React.PureComponent {
           lineNumbers: true
         }}
         />)
-    } else if (this.state.currentMode === 'json') {
+    } else if (this.state.currentMode === 'json' || this.state.currentMode === 'base64') {
       viewer = (<Codemirror
         ref="codemirror"
         key="json"
-        value={this.state.modes.json}
+        value={this.state.modes.json || this.state.modes.base64}
         onChange={this.updateContent.bind(this, 'json')}
         options={{
           mode: {
@@ -235,6 +240,7 @@ class Editor extends React.PureComponent {
           <option value="raw" disabled={typeof this.state.modes.raw !== 'string'}>Raw</option>
           <option value="json" disabled={typeof this.state.modes.json !== 'string'}>JSON</option>
           <option value="messagepack" disabled={typeof this.state.modes.messagepack !== 'string'}>MessagePack</option>
+          <option value="base64" disabled={typeof this.state.modes.base64 !== 'string'}>Base 64</option>
         </select>
         <button
           className="nt-button"
@@ -279,4 +285,19 @@ function tryFormatMessagepack(buffer, beautify) {
   } catch (e) { /**/ }
 
   return false
+}
+
+function tryFormatBase64(str, beautify) {
+  try {
+    const jsonString = pako.inflate(Buffer.from(str, 'base64'), { to: 'string' })
+    try {
+      const o = JSON.parse(jsonString)
+      if (o && typeof o === 'object' && o !== null) {
+        if (beautify) {
+          return JSON.stringify(o, null, '\t')
+        }
+        return JSON.stringify(o)
+      }
+    } catch (e) { /**/ }
+  } catch (e) { /**/ }
 }

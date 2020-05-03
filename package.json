@@ -27,6 +27,7 @@
     "lodash.escape": "^4.0.1",
     "lodash.sortedindexby": "^4.6.0",
     "medis-react-codemirror": "^1.1.1",
+    "packo": "^2.3.4",
     "redis-commands": "^1.5.0",
     "ssh2": "^0.6.2",
     "xterm": "^3.13.1"
